@@ -41,7 +41,7 @@ impl LiveSceneGraph {
             current_snapshot.del_edge(src, dst, meta);
             self.snapshots.push(current_snapshot);
         }
-        //TODO: (ArshiA) Reflect "do nothing" at the type-system level
+        //TODO: (ArshiA) Reflect "do nothing" at type-system level
     }
 
     /// Update an edge in the latest snapshot in the live scene graph.
