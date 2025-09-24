@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 mod error;
-use error::{AtlasError, Result};
+mod node;
+
+use node::Node;
 
 /// A live scene graph containing multiple snapshots of the environment.
 /// Each snapshot represents the state of the scene graph at a specific point in time.
@@ -97,31 +99,6 @@ impl Snapshot {
     }
 }
 
-/// A node in the scene graph representing an object.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Node {
-    /// Unique identifier for the node.
-    #[serde(rename = "node_id")]
-    id: usize,
-
-    /// Labels associated with the node.
-    label: Vec<String>,
-
-    /// Affordance labels associated with the node, if any.
-    label_affordance: Option<Vec<String>>,
-
-    /// Last snapshot index when the node was processed.
-    processed_last: usize,
-
-    /// list of features representing the object.
-    features: Vec<f32>,
-
-    /// 3D points of the point cloud representing the object.
-    pcd_points: Vec<[f32; 3]>,
-
-    /// Colors of the points in the point cloud.
-    pcd_colors: Vec<[f32; 3]>,
-}
 
 /// An edge in the scene graph representing a relationship between two nodes.
 /// The edge can represent both hierarchical and relational relation between two nodes .

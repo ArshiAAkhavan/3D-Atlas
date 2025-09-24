@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|e| e.meta.desc.clone())
         .collect::<HashSet<_>>();
     println!("edge types: {edge_types:?}");
+    snapshot.nodes.iter().map(|n|n.pcd_points.len()).for_each(|c|println!("{c}"));
 
     Ok(())
 }
