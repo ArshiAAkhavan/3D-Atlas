@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -12,5 +13,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("edge count: {}", snapshot.edges.len());
     println!("expected node count: {}", snapshot.num_objects);
     println!("small objects: {:?}", snapshot.small_objects);
+
+    let edge_types = snapshot
+        .edges
+        .iter()
+        .map(|e| e.meta.desc.clone())
+        .collect::<HashSet<_>>();
+    println!("edge types: {edge_types:?}");
+
     Ok(())
 }
