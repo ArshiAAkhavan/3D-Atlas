@@ -7,6 +7,9 @@ pub enum AtlasError {
     #[error("edge not found")]
     EdgeNotFound,
 
+    #[error("node not found")]
+    NodeNotFound,
+
     #[error("point not found")]
     PointNotFound,
 }

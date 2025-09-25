@@ -7,7 +7,7 @@ use crate::error::{AtlasError, Result};
 pub struct Node {
     /// Unique identifier for the node.
     #[serde(rename = "node_id")]
-    id: usize,
+    pub id: usize,
 
     /// Labels associated with the node.
     label: Vec<String>,
@@ -32,7 +32,7 @@ pub struct Node {
 impl Node {
     /// Create a new empty node with the given id.
     #[cfg(test)]
-    fn new(id: usize) -> Self {
+    pub fn new(id: usize) -> Self {
         Self {
             id,
             ..Default::default()
