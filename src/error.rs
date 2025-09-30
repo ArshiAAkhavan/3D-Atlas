@@ -12,4 +12,7 @@ pub enum AtlasError {
 
     #[error("point not found")]
     PointNotFound,
+
+    #[error("layer index out of bounds: {0} is not within (0, {1})")]
+    LayerOutOfBounds(usize, usize),
 }
