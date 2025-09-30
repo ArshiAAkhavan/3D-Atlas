@@ -24,7 +24,7 @@ pub struct SceneGraph {
 /// For example, a layer might represent a specific level of detail or a specific type of object in the scene.
 /// Edges can represent relationships such as "is part of", "is connected to", or "is near".
 #[derive(Debug, Default)]
-struct SubGraph {
+pub struct SubGraph {
     /// Nodes in the subgraph, each paired with its outgoing edges.
     nodes: Vec<(Node, Vec<Edge>)>,
 }
@@ -92,10 +92,12 @@ struct EdgeMeta {
 
 /// public API
 impl SceneGraph {
-    pub fn add_layer(&mut self) {
+    /// Create a new, empty layer in the scene graph.
+    pub fn create_layer(&mut self) {
         self.layers.push(SubGraph::default());
     }
 
+    /// Get a mutable reference to a layer by its index.
     pub fn get_layer_mut(&mut self, index: usize) -> Result<&mut SubGraph> {
         let layers_count = self.layers.len();
         self.layers
@@ -103,28 +105,34 @@ impl SceneGraph {
             .ok_or(AtlasError::LayerOutOfBounds(index, layers_count))
     }
 
+    /// Get an immutable reference to a layer by its index.
     pub fn get_layer(&self, index: usize) -> Result<&SubGraph> {
         self.layers
             .get(index)
             .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
     }
 
+    /// Get a reference to a node by its ID.
+    /// Searches through all layers.
     pub fn get_node(&self, id: usize) -> Result<&Node> {
         self.layers
             .iter()
             .filter_map(|l| l.get_node(id).ok())
-            .nth(1)
+            .nth(0)
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Get a mutable reference to a node by its ID.
+    /// Searches through all layers.
     pub fn get_node_mut(&mut self, id: usize) -> Result<&mut Node> {
         self.layers
             .iter_mut()
             .filter_map(|l| l.get_node_mut(id).ok())
-            .nth(1)
+            .nth(0)
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Create a new node with the given data for the Scene Graph.
     pub fn new_node(&mut self, data: Vec<NodeData>) -> Node {
         self.node_count += 1;
         Node {
@@ -135,7 +143,11 @@ impl SceneGraph {
         }
     }
 
+    /// Delete a node by its ID from the Scene Graph.
+    /// This will also recursively delete all child nodes of the specified node.
+    /// If the node has a parent, it will be removed from the parent's list of children.
     pub fn del_node(&mut self, id: usize) -> Result<Node> {
+        // Find the layer containing the node
         let layer_id = self
             .layers
             .iter()
@@ -144,6 +156,7 @@ impl SceneGraph {
 
         let node = self.del_node_on_layer(id, layer_id)?;
 
+        // If the node has a parent, remove it from the parent's children list
         if let Some(parent_id) = node.parent_id {
             let parent = self.get_layer_mut(layer_id - 1)?.get_node_mut(parent_id)?;
             let pos = parent.children_ids.iter().position(|e| *e == id).unwrap();
@@ -152,16 +165,45 @@ impl SceneGraph {
         Ok(node)
     }
 
+    /// Nest a node under another node, establishing a parent-child relationship.
+    /// The `nestee` node will become a child of the `nester` node.
+    /// Both nodes must exist in the scene graph.
+    /// If the `nestee` node already has a parent, it will be removed from its current parent's list of children.
+    /// The `nester` node will have the `nestee` node added to its list of children.
+    ///
+    /// ```rust
+    /// # use atlas::SceneGraph;
+    /// # use atlas::NodeData;
+    /// # let mut sg = SceneGraph::default();
+    ///
+    /// // Create nodes
+    /// let node1 = sg.new_node(vec![NodeData::Label("Node 1".to_string())]);
+    /// let node2 = sg.new_node(vec![NodeData::Label("Node 2".to_string())]);
+    /// let id1 = node1.id;
+    /// let id2 = node2.id;
+    ///
+    /// // Create a layer and add nodes to it
+    /// sg.create_layer();
+    /// sg.get_layer_mut(0).unwrap().add_node(node1);
+    /// sg.create_layer();
+    /// sg.get_layer_mut(1).unwrap().add_node(node2);
+    ///
+    /// // Nest node2 under node1
+    /// sg.nest(id2).under(id1).unwrap();
+    ///
+    /// assert_eq!(sg.get_node(id1).unwrap().children_ids, vec![id2]);
+    /// assert_eq!(sg.get_node(id2).unwrap().parent_id, Some(id1));
+    /// ```
     pub fn nest(&mut self, nestee: usize) -> NestUnder<'_> {
         NestUnder { sg: self, nestee }
     }
 }
 
 impl SceneGraph {
-    fn total_nodes(&self) -> usize {
-        self.layers.iter().map(|g| g.nodes.len()).sum()
-    }
 
+    /// Delete a node by its ID from a specific layer in the Scene Graph.
+    /// This will also recursively delete all child nodes of the specified node from subsequent layers.
+    /// If the node has a parent, it WILL NOT be removed from the parent's list of children
     fn del_node_on_layer(&mut self, id: usize, layer_id: usize) -> Result<Node> {
         let node = self.get_layer_mut(layer_id)?.del_node(id)?;
         for child_id in &node.children_ids {
@@ -172,6 +214,7 @@ impl SceneGraph {
 }
 
 impl SubGraph {
+    /// Get a reference to a node by its ID within the subgraph.
     pub fn get_node(&self, id: usize) -> Result<&Node> {
         self.nodes
             .iter()
@@ -180,6 +223,7 @@ impl SubGraph {
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Get a mutable reference to a node by its ID within the subgraph.
     pub fn get_node_mut(&mut self, id: usize) -> Result<&mut Node> {
         self.nodes
             .iter_mut()
@@ -188,10 +232,13 @@ impl SubGraph {
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Add a new node to the subgraph.
     pub fn add_node(&mut self, node: Node) {
         self.nodes.push((node, Vec::new()));
     }
 
+    /// Delete a node by its ID from the subgraph.
+    /// This will also remove all edges connected to the node, both incoming and outgoing.
     fn del_node(&mut self, id: usize) -> Result<Node> {
         let pos = self
             .nodes
@@ -199,12 +246,15 @@ impl SubGraph {
             .position(|(n, _)| n.id == id)
             .ok_or(AtlasError::NodeNotFound)?;
         let (node, _) = self.nodes.swap_remove(pos);
+
+        // Remove all edges connected to the node
         for (_, edges) in self.nodes.iter_mut() {
             edges.retain(|e| e.dst != id);
         }
         Ok(node)
     }
 
+    /// Add a directed edge from the source node to the destination node with associated metadata.
     pub fn add_edge(&mut self, src: usize, dst: usize, meta: EdgeMeta) -> Result<()> {
         let _ = self
             .nodes
@@ -220,6 +270,7 @@ impl SubGraph {
         Ok(())
     }
 
+    /// Delete a directed edge from the source node to the destination node.
     pub fn del_edge(&mut self, src: usize, dst: usize) -> Result<()> {
         let (_, src_edges) = self
             .nodes
@@ -230,20 +281,26 @@ impl SubGraph {
             .iter()
             .position(|e| e.dst == dst)
             .ok_or(AtlasError::EdgeNotFound)?;
+
         src_edges.swap_remove(edge_pos);
         Ok(())
     }
 }
 
-struct NestUnder<'a> {
+pub struct NestUnder<'a> {
     sg: &'a mut SceneGraph,
     nestee: usize,
 }
 
 impl<'a> NestUnder<'a> {
+    /// Complete the nesting operation by specifying the `nester` node under which the `nestee` node
+    /// Refer to the `nest` method in `SceneGraph` for usage example.
+    ///
+    /// [`nest`](SceneGraph::nest)
     pub fn under(&mut self, nester: usize) -> Result<&mut SceneGraph> {
         let nestee = self.sg.get_node_mut(self.nestee)?;
         match nestee.parent_id {
+            // Remove from old parent
             Some(parent_id) => {
                 nestee.parent_id = Some(nester);
                 let parent = self.sg.get_node_mut(parent_id)?;

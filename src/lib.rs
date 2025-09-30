@@ -1,9 +1,7 @@
-
 mod error;
 mod sg;
 
-use crate::error::{AtlasError, Result};
-use sg::SceneGraph;
+pub use sg::{NodeData, SceneGraph};
 
 /// A stream of events recorded through several scene graph snapshot from the environment.
 /// Each snapshot represents the state of the scene graph at a specific point in time.
@@ -13,11 +11,18 @@ pub struct SceneGraphStream {
 }
 
 impl SceneGraphStream {
-    /// Create a new empty SceneGraphStream.
-    pub fn new() -> Self {
-        Self {
-            snapshots: Vec::new(),
-        }
+    /// Returns a reference to the top snapshot in the stream, if any.
+    pub fn top(&self) -> Option<&SceneGraph> {
+        self.snapshots.last()
+    }
+
+    /// Removes and returns the top snapshot in the stream, if any.
+    pub fn pop(&mut self) -> Option<SceneGraph> {
+        self.snapshots.pop()
+    }
+
+    /// Adds a new snapshot to the top of the stream.
+    pub fn push(&mut self, snapshot: SceneGraph) {
+        self.snapshots.push(snapshot);
     }
 }
-
