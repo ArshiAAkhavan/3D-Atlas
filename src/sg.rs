@@ -7,7 +7,7 @@ use crate::error::{AtlasError, Result};
 ///
 /// The scene graph supports operations such as adding/removing nodes and edges,
 /// nesting nodes under other nodes, and querying nodes by their IDs.
-#[derive(Debug, Default)]
+#[derive(Debug, Default,Clone)]
 pub struct SceneGraph {
     /// Layers of the scene graph, where each layer is a subgraph.
     layers: Vec<SubGraph>,
@@ -23,7 +23,7 @@ pub struct SceneGraph {
 /// Edges can represent various types of connections between nodes.
 /// For example, a layer might represent a specific level of detail or a specific type of object in the scene.
 /// Edges can represent relationships such as "is part of", "is connected to", or "is near".
-#[derive(Debug, Default)]
+#[derive(Debug, Default,Clone)]
 pub struct SubGraph {
     /// Nodes in the subgraph, each paired with its outgoing edges.
     nodes: Vec<(Node, Vec<Edge>)>,
@@ -32,7 +32,7 @@ pub struct SubGraph {
 /// A node in the scene graph representing an object or entity in the 3D environment.
 /// Each node has a unique ID, optional parent ID, a list of child IDs, and associated data.
 /// The data can include labels, affordances, and point cloud information.
-#[derive(Debug, Default)]
+#[derive(Debug, Default,Clone)]
 pub struct Node {
     /// Unique identifier for the node in the scene graph.
     pub id: usize,
@@ -71,7 +71,7 @@ pub enum NodeData {
 /// or "is near".
 /// Edges are directed, meaning they have a specific direction from the source node to the destination node.
 /// Edges can only connect nodes within the same layer.
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct Edge {
     /// Identifier of the source node.
     src: usize,
@@ -84,8 +84,8 @@ struct Edge {
 }
 
 /// Metadata associated with an edge in the scene graph.
-#[derive(Debug)]
-struct EdgeMeta {
+#[derive(Debug,Clone)]
+pub struct EdgeMeta {
     /// A textual description of the edge, such as the type of relationship it represents.
     desc: String,
 }
