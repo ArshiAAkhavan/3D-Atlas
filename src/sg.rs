@@ -97,6 +97,16 @@ impl SceneGraph {
         self.layers.push(SubGraph::default());
     }
 
+    pub fn top_layer_mut(&mut self) -> Result<&mut SubGraph> {
+        self.layers
+            .last_mut()
+            .ok_or(AtlasError::LayerOutOfBounds(0, 0))
+    }
+
+    pub fn top_layer(&self) -> Result<&SubGraph> {
+        self.layers.last().ok_or(AtlasError::LayerOutOfBounds(0, 0))
+    }
+
     /// Get a mutable reference to a layer by its index.
     pub fn get_layer_mut(&mut self, index: usize) -> Result<&mut SubGraph> {
         let layers_count = self.layers.len();
@@ -118,6 +128,16 @@ impl SceneGraph {
         self.layers
             .iter()
             .filter_map(|l| l.get_node(id).ok())
+            .nth(0)
+            .ok_or(AtlasError::NodeNotFound)
+    }
+
+    /// Get a reference to a node's edges by its ID.
+    #[cfg(test)]
+    fn get_edges(&self, id: usize) -> Result<&Vec<Edge>> {
+        self.layers
+            .iter()
+            .filter_map(|l| l.get_edges(id).ok())
             .nth(0)
             .ok_or(AtlasError::NodeNotFound)
     }
@@ -200,7 +220,6 @@ impl SceneGraph {
 }
 
 impl SceneGraph {
-
     /// Delete a node by its ID from a specific layer in the Scene Graph.
     /// This will also recursively delete all child nodes of the specified node from subsequent layers.
     /// If the node has a parent, it WILL NOT be removed from the parent's list of children
@@ -287,6 +306,18 @@ impl SubGraph {
     }
 }
 
+impl SubGraph {
+    /// Get a reference to a node's edges by its ID within the subgraph.
+    #[cfg(test)]
+    fn get_edges(&self, id: usize) -> Result<&Vec<Edge>> {
+        self.nodes
+            .iter()
+            .find(|(n, _)| n.id == id)
+            .map(|(_, e)| e)
+            .ok_or(AtlasError::NodeNotFound)
+    }
+}
+
 pub struct NestUnder<'a> {
     sg: &'a mut SceneGraph,
     nestee: usize,
@@ -313,5 +344,75 @@ impl<'a> NestUnder<'a> {
 
         self.sg.get_node_mut(nester)?.children_ids.push(self.nestee);
         Ok(self.sg)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::error::Result;
+
+    #[test]
+    fn api() -> Result<()> {
+        let mut sg = SceneGraph::default();
+
+        // create nodes
+        let node1 = sg.new_node(vec![NodeData::Label("Node 1".into())]);
+        let node2 = sg.new_node(vec![NodeData::Label("Node 2".into())]);
+        let node3 = sg.new_node(vec![NodeData::Label("Node 3".into())]);
+        let id1 = node1.id;
+        let id2 = node2.id;
+        let id3 = node3.id;
+
+        // create layers and add nodes to layers
+        sg.create_layer();
+        sg.top_layer_mut()?.add_node(node1);
+        sg.create_layer();
+        sg.top_layer_mut()?.add_node(node2);
+        sg.top_layer_mut()?.add_node(node3);
+
+        // nesting
+        sg.nest(id2).under(id1)?;
+        sg.nest(id3).under(id1)?;
+        assert_eq!(sg.get_node(id1)?.children_ids, vec![id2, id3]);
+        assert_eq!(sg.get_node(id2)?.parent_id, Some(id1));
+        assert_eq!(sg.get_node(id3)?.parent_id, Some(id1));
+
+        // add edge
+        let meta1 = EdgeMeta {
+            desc: "connected to".to_string(),
+        };
+        let meta2 = EdgeMeta {
+            desc: "is supporting".to_string(),
+        };
+        sg.get_layer_mut(1)?.add_edge(id2, id3, meta1)?;
+        sg.get_layer_mut(1)?.add_edge(id3, id2, meta2)?;
+        assert_eq!(sg.get_edges(id2)?.len(), 1);
+        assert_eq!(sg.get_edges(id3)?.len(), 1);
+
+        // delete edge
+        sg.get_layer_mut(1)?.del_edge(id2, id3)?;
+        assert_eq!(sg.get_edges(id2)?.len(), 0);
+        assert_eq!(sg.get_edges(id3)?.len(), 1);
+
+        // delete invalid edge
+        assert!(sg.get_layer_mut(1)?.del_edge(id2, id3).is_err());
+
+        // delete node
+
+        // deleting a node should also delete its edges within the same layers
+        sg.del_node(id2)?;
+        assert!(sg.get_node(id2).is_err());
+        assert_eq!(sg.get_edges(id3)?.len(), 0);
+        // should also be removed from parent's children List
+        assert_eq!(sg.get_node(id1)?.children_ids, vec![id3]);
+
+        sg.del_node(id1)?;
+        assert!(sg.get_node(id1).is_err());
+        // children should also be deleted
+        assert!(sg.get_node(id2).is_err());
+        assert!(sg.get_node(id3).is_err());
+
+        Ok(())
     }
 }
