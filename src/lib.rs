@@ -1,7 +1,7 @@
 mod error;
 mod sg;
 
-pub use sg::{NodeData, SceneGraph};
+pub use sg::{NodeFeature, SceneGraph};
 
 /// A stream of events recorded through several scene graph snapshot from the environment.
 /// Each snapshot represents the state of the scene graph at a specific point in time.

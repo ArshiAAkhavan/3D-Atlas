@@ -7,7 +7,7 @@ use crate::error::{AtlasError, Result};
 ///
 /// The scene graph supports operations such as adding/removing nodes and edges,
 /// nesting nodes under other nodes, and querying nodes by their IDs.
-#[derive(Debug, Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SceneGraph {
     /// Layers of the scene graph, where each layer is a subgraph.
     layers: Vec<SubGraph>,
@@ -23,7 +23,7 @@ pub struct SceneGraph {
 /// Edges can represent various types of connections between nodes.
 /// For example, a layer might represent a specific level of detail or a specific type of object in the scene.
 /// Edges can represent relationships such as "is part of", "is connected to", or "is near".
-#[derive(Debug, Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SubGraph {
     /// Nodes in the subgraph, each paired with its outgoing edges.
     nodes: Vec<(Node, Vec<Edge>)>,
@@ -32,7 +32,7 @@ pub struct SubGraph {
 /// A node in the scene graph representing an object or entity in the 3D environment.
 /// Each node has a unique ID, optional parent ID, a list of child IDs, and associated data.
 /// The data can include labels, affordances, and point cloud information.
-#[derive(Debug, Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Node {
     /// Unique identifier for the node in the scene graph.
     pub id: usize,
@@ -46,14 +46,14 @@ pub struct Node {
     /// It is assured that if a node has children, they are on the layer immediately below
     pub children_ids: Vec<usize>,
 
-    /// Data associated with the node, such as labels, affordances, and point cloud information.
-    pub data: Vec<NodeData>,
+    /// features associated with the node, such as labels, affordances, and point cloud information.
+    pub features: Vec<NodeFeature>,
 }
 
-/// Different types of data that can be associated with a node in the scene graph.
+/// Different types of features that can be associated with a node in the scene graph.
 /// This can include labels, affordances, and point cloud information.
-#[derive(Debug, Clone)]
-pub enum NodeData {
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeFeature {
     /// A textual label describing the object or entity represented by the node.
     Label(String),
 
@@ -71,7 +71,7 @@ pub enum NodeData {
 /// or "is near".
 /// Edges are directed, meaning they have a specific direction from the source node to the destination node.
 /// Edges can only connect nodes within the same layer.
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct Edge {
     /// Identifier of the source node.
     src: usize,
@@ -84,7 +84,7 @@ struct Edge {
 }
 
 /// Metadata associated with an edge in the scene graph.
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct EdgeMeta {
     /// A textual description of the edge, such as the type of relationship it represents.
     desc: String,
@@ -121,23 +121,16 @@ impl SceneGraph {
             .get(index)
             .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
     }
+}
 
+/// Query methods for retrieving nodes and edges
+impl SceneGraph {
     /// Get a reference to a node by its ID.
     /// Searches through all layers.
     pub fn get_node(&self, id: usize) -> Result<&Node> {
         self.layers
             .iter()
             .filter_map(|l| l.get_node(id).ok())
-            .nth(0)
-            .ok_or(AtlasError::NodeNotFound)
-    }
-
-    /// Get a reference to a node's edges by its ID.
-    #[cfg(test)]
-    fn get_edges(&self, id: usize) -> Result<&Vec<Edge>> {
-        self.layers
-            .iter()
-            .filter_map(|l| l.get_edges(id).ok())
             .nth(0)
             .ok_or(AtlasError::NodeNotFound)
     }
@@ -152,14 +145,53 @@ impl SceneGraph {
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Get List of all nodes matching a specific node features.
+    pub fn nodes_with_features(&self, features: &Vec<NodeFeature>) -> Vec<&Node> {
+        self.layers
+            .iter()
+            .flat_map(|l| l.nodes_with_features(features))
+            .collect()
+    }
+
+    /// Get List of all edges matching a specific description.
+    pub fn edges_matching(&self, desc: &str) -> Vec<&Edge> {
+        self.layers
+            .iter()
+            .flat_map(|l| l.edges_matching(desc))
+            .collect()
+    }
+
+    /// Get List of all edges from a specific source node.
+    pub fn edges_from(&self, src: usize) -> Vec<&Edge> {
+        self.layers.iter().flat_map(|l| l.edges_from(src)).collect()
+    }
+
+    /// Get List of all edges to a specific destination node.
+    pub fn edges_to(&self, dst: usize) -> Vec<&Edge> {
+        self.layers.iter().flat_map(|l| l.edges_to(dst)).collect()
+    }
+
+    /// Get a reference to a node's edges by its ID.
+    #[cfg(test)]
+    fn get_edges(&self, id: usize) -> Result<&Vec<Edge>> {
+        self.layers
+            .iter()
+            .filter_map(|l| l.get_edges(id).ok())
+            .nth(0)
+            .ok_or(AtlasError::NodeNotFound)
+    }
+}
+
+/// API
+impl SceneGraph {
     /// Create a new node with the given data for the Scene Graph.
-    pub fn new_node(&mut self, data: Vec<NodeData>) -> Node {
+    pub fn new_node(&mut self, features: Vec<NodeFeature>) -> Node {
         self.node_count += 1;
         Node {
             id: self.node_count - 1,
             parent_id: None,
             children_ids: vec![],
-            data,
+            features,
         }
     }
 
@@ -193,12 +225,12 @@ impl SceneGraph {
     ///
     /// ```rust
     /// # use atlas::SceneGraph;
-    /// # use atlas::NodeData;
+    /// # use atlas::NodeFeature;
     /// # let mut sg = SceneGraph::default();
     ///
     /// // Create nodes
-    /// let node1 = sg.new_node(vec![NodeData::Label("Node 1".to_string())]);
-    /// let node2 = sg.new_node(vec![NodeData::Label("Node 2".to_string())]);
+    /// let node1 = sg.new_node(vec![NodeFeature::Label("Node 1".to_string())]);
+    /// let node2 = sg.new_node(vec![NodeFeature::Label("Node 2".to_string())]);
     /// let id1 = node1.id;
     /// let id2 = node2.id;
     ///
@@ -306,6 +338,43 @@ impl SubGraph {
     }
 }
 
+/// Query methods for retrieving nodes and edges within a subgraph
+impl SubGraph {
+    /// Get List of all nodes matching a specific node features.
+    pub fn nodes_with_features(&self, features: &Vec<NodeFeature>) -> Vec<&Node> {
+        self.nodes
+            .iter()
+            .map(|(n, _)| n)
+            .filter(|n| features.iter().all(|f| n.features.contains(f)))
+            .collect()
+    }
+
+    /// Get List of all edges matching a specific description.
+    pub fn edges_matching(&self, desc: &str) -> Vec<&Edge> {
+        self.nodes
+            .iter()
+            .flat_map(|(_, edges)| edges.iter().filter(|e| e.meta.desc == desc))
+            .collect()
+    }
+
+    /// Get List of all edges from a specific source node.
+    pub fn edges_from(&self, src: usize) -> Vec<&Edge> {
+        self.nodes
+            .iter()
+            .filter(|(n, _)| n.id == src)
+            .flat_map(|(_, edges)| edges.iter())
+            .collect()
+    }
+
+    /// Get List of all edges to a specific destination node.
+    pub fn edges_to(&self, dst: usize) -> Vec<&Edge> {
+        self.nodes
+            .iter()
+            .flat_map(|(_, edges)| edges.iter().filter(|e| e.dst == dst))
+            .collect()
+    }
+}
+
 impl SubGraph {
     /// Get a reference to a node's edges by its ID within the subgraph.
     #[cfg(test)]
@@ -357,9 +426,9 @@ mod test {
         let mut sg = SceneGraph::default();
 
         // create nodes
-        let node1 = sg.new_node(vec![NodeData::Label("Node 1".into())]);
-        let node2 = sg.new_node(vec![NodeData::Label("Node 2".into())]);
-        let node3 = sg.new_node(vec![NodeData::Label("Node 3".into())]);
+        let node1 = sg.new_node(vec![NodeFeature::Label("Node 1".into())]);
+        let node2 = sg.new_node(vec![NodeFeature::Label("Node 2".into())]);
+        let node3 = sg.new_node(vec![NodeFeature::Label("Node 3".into())]);
         let id1 = node1.id;
         let id2 = node2.id;
         let id3 = node3.id;
