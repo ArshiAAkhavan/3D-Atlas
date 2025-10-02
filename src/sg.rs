@@ -72,7 +72,7 @@ pub enum NodeFeature {
 /// Edges are directed, meaning they have a specific direction from the source node to the destination node.
 /// Edges can only connect nodes within the same layer.
 #[derive(Debug, Clone)]
-struct Edge {
+pub struct Edge {
     /// Identifier of the source node.
     src: usize,
 
@@ -146,29 +146,36 @@ impl SceneGraph {
     }
 
     /// Get List of all nodes matching a specific node features.
-    pub fn nodes_with_features(&self, features: &Vec<NodeFeature>) -> Vec<&Node> {
+    pub fn nodes_with_features(&self, features: &Vec<NodeFeature>) -> Vec<Vec<&Node>> {
         self.layers
             .iter()
-            .flat_map(|l| l.nodes_with_features(features))
+            .map(|l| l.nodes_with_features(features))
             .collect()
     }
 
     /// Get List of all edges matching a specific description.
-    pub fn edges_matching(&self, desc: &str) -> Vec<&Edge> {
-        self.layers
-            .iter()
-            .flat_map(|l| l.edges_matching(desc))
-            .collect()
+    pub fn edges_matching(&self, desc: &str) -> Vec<Vec<&Edge>> {
+        self.layers.iter().map(|l| l.edges_matching(desc)).collect()
     }
 
     /// Get List of all edges from a specific source node.
     pub fn edges_from(&self, src: usize) -> Vec<&Edge> {
-        self.layers.iter().flat_map(|l| l.edges_from(src)).collect()
+        self.layers
+            .iter()
+            .map(|l| l.edges_from(src))
+            .filter(|v| !v.is_empty())
+            .nth(0)
+            .unwrap_or_default()
     }
 
     /// Get List of all edges to a specific destination node.
     pub fn edges_to(&self, dst: usize) -> Vec<&Edge> {
-        self.layers.iter().flat_map(|l| l.edges_to(dst)).collect()
+        self.layers
+            .iter()
+            .map(|l| l.edges_to(dst))
+            .filter(|v| !v.is_empty())
+            .nth(0)
+            .unwrap_or_default()
     }
 
     /// Get a reference to a node's edges by its ID.
@@ -504,5 +511,106 @@ mod test {
         assert!(sg.get_node(id3).is_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn query() -> Result<()> {
+        let mut sg = SceneGraph::default();
+
+        // create nodes
+        let chair = sg.new_node(vec![
+            NodeFeature::Label("chair".into()),
+            NodeFeature::Label("furniture".into()),
+            NodeFeature::Affordance("sit".into()),
+        ]);
+        let table = sg.new_node(vec![
+            NodeFeature::Label("table".into()),
+            NodeFeature::Label("furniture".into()),
+            NodeFeature::Affordance("place items".into()),
+        ]);
+        let wall = sg.new_node(vec![
+            NodeFeature::Label("wall".into()),
+            NodeFeature::Label("structure".into()),
+            NodeFeature::Affordance("support".into()),
+        ]);
+        let clock = sg.new_node(vec![
+            NodeFeature::Label("clock".into()),
+            NodeFeature::Label("appliance".into()),
+        ]);
+        let chair_id = chair.id;
+        let table_id = table.id;
+        let wall_id = wall.id;
+        let clock_id = clock.id;
+
+        // create layers and add nodes to layers
+        sg.create_layer();
+        sg.top_layer_mut()?.add_node(table);
+        sg.top_layer_mut()?.add_node(wall);
+        sg.top_layer_mut()?.add_node(chair);
+        sg.top_layer_mut()?.add_node(clock);
+
+        sg.top_layer_mut()?.add_edge(
+            clock_id,
+            wall_id,
+            EdgeMeta {
+                desc: "supported by".into(),
+            },
+        )?;
+        sg.top_layer_mut()?.add_edge(
+            table_id,
+            chair_id,
+            EdgeMeta {
+                desc: "next to".into(),
+            },
+        )?;
+        sg.top_layer_mut()?.add_edge(
+            chair_id,
+            table_id,
+            EdgeMeta {
+                desc: "next to".into(),
+            },
+        )?;
+        sg.top_layer_mut()?.add_edge(
+            table_id,
+            wall_id,
+            EdgeMeta {
+                desc: "in front of".into(),
+            },
+        )?;
+
+        // query nodes by label
+        let furniture = sg.nodes_with_features(&vec![NodeFeature::Label("furniture".into())]);
+        assert_eq!(furniture.len(), 1); // only one layer in the scene graph
+        assert_eq!(furniture[0].len(), 2); // top layer
+        assert!(furniture[0].iter().any(|n| n.id == chair_id));
+        assert!(furniture[0].iter().any(|n| n.id == table_id));
+
+        // query nodes by affordance
+        let sit_nodes = sg.nodes_with_features(&vec![NodeFeature::Affordance("sit".into())]);
+        assert_eq!(sit_nodes.len(), 1); // only one layer in the scene graph
+        assert_eq!(sit_nodes[0].len(), 1); // top layer
+        assert_eq!(sit_nodes[0][0].id, chair_id);
+
+        // query edges by src
+        let edges_from_table = sg.edges_from(table_id);
+        assert_eq!(edges_from_table.len(), 2);
+        assert!(edges_from_table.iter().any(|e| e.dst == chair_id));
+        assert!(edges_from_table.iter().any(|e| e.dst == wall_id));
+
+        // query edges by dst;
+        let edges_to_wall = sg.edges_to(wall_id);
+        assert_eq!(edges_to_wall.len(), 2);
+        assert!(edges_to_wall.iter().any(|e| e.src == clock_id));
+        assert!(edges_to_wall.iter().any(|e| e.src == table_id));
+
+        // query edges by description
+        let next_to_edges = sg.edges_matching("next to");
+        assert_eq!(next_to_edges.len(), 1); // only one layer in the scene graph
+        assert_eq!(next_to_edges[0].len(), 2); // top layer 
+        assert!(next_to_edges[0].iter().any(|e| e.src == table_id && e.dst == chair_id));
+        assert!(next_to_edges[0].iter().any(|e| e.src == chair_id && e.dst == table_id));
+
+        Ok(())
+
     }
 }
