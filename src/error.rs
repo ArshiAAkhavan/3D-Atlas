@@ -15,4 +15,7 @@ pub enum AtlasError {
 
     #[error("layer index out of bounds: {0} is not within (0, {1})")]
     LayerOutOfBounds(usize, usize),
+
+    #[error("invalid layers for nesting: cannot nest layer {0} within layer {1}")]
+    InvalidLayersForNesting(usize,usize),
 }

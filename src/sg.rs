@@ -210,7 +210,7 @@ impl SceneGraph {
 
         // If the node has a parent, remove it from the parent's children list
         if let Some(parent_id) = node.parent_id {
-            let parent = self.get_layer_mut(layer_id - 1)?.get_node_mut(parent_id)?;
+            let parent = self.get_layer_mut(layer_id + 1)?.get_node_mut(parent_id)?;
             let pos = parent.children_ids.iter().position(|e| *e == id).unwrap();
             parent.children_ids.swap_remove(pos);
         }
@@ -220,6 +220,7 @@ impl SceneGraph {
     /// Nest a node under another node, establishing a parent-child relationship.
     /// The `nestee` node will become a child of the `nester` node.
     /// Both nodes must exist in the scene graph.
+    /// The `nester` node must be on the layer immediately above the `nestee` node.
     /// If the `nestee` node already has a parent, it will be removed from its current parent's list of children.
     /// The `nester` node will have the `nestee` node added to its list of children.
     ///
@@ -236,15 +237,15 @@ impl SceneGraph {
     ///
     /// // Create a layer and add nodes to it
     /// sg.create_layer();
-    /// sg.get_layer_mut(0).unwrap().add_node(node1);
     /// sg.create_layer();
+    /// sg.get_layer_mut(0).unwrap().add_node(node1);
     /// sg.get_layer_mut(1).unwrap().add_node(node2);
     ///
-    /// // Nest node2 under node1
-    /// sg.nest(id2).under(id1).unwrap();
+    /// // Nest node1 under node2
+    /// sg.nest(id1).under(id2).unwrap();
     ///
-    /// assert_eq!(sg.get_node(id1).unwrap().children_ids, vec![id2]);
-    /// assert_eq!(sg.get_node(id2).unwrap().parent_id, Some(id1));
+    /// assert_eq!(sg.get_node(id2).unwrap().children_ids, vec![id1]);
+    /// assert_eq!(sg.get_node(id1).unwrap().parent_id, Some(id2));
     /// ```
     pub fn nest(&mut self, nestee: usize) -> NestUnder<'_> {
         NestUnder { sg: self, nestee }
@@ -258,7 +259,7 @@ impl SceneGraph {
     fn del_node_on_layer(&mut self, id: usize, layer_id: usize) -> Result<Node> {
         let node = self.get_layer_mut(layer_id)?.del_node(id)?;
         for child_id in &node.children_ids {
-            self.del_node_on_layer(*child_id, layer_id + 1)?;
+            self.del_node_on_layer(*child_id, layer_id - 1)?;
         }
         Ok(node)
     }
@@ -398,6 +399,26 @@ impl<'a> NestUnder<'a> {
     ///
     /// [`nest`](SceneGraph::nest)
     pub fn under(&mut self, nester: usize) -> Result<&mut SceneGraph> {
+        let nester_layer_id = self
+            .sg
+            .layers
+            .iter()
+            .position(|g| g.nodes.iter().any(|(n, _)| n.id == nester))
+            .ok_or(AtlasError::NodeNotFound)?;
+        let nestee_layer_id = self
+            .sg
+            .layers
+            .iter()
+            .position(|g| g.nodes.iter().any(|(n, _)| n.id == self.nestee))
+            .ok_or(AtlasError::NodeNotFound)?;
+
+        if nester_layer_id - 1 != nestee_layer_id {
+            return Err(AtlasError::InvalidLayersForNesting(
+                nestee_layer_id,
+                nester_layer_id,
+            ));
+        }
+
         let nestee = self.sg.get_node_mut(self.nestee)?;
         match nestee.parent_id {
             // Remove from old parent
@@ -435,14 +456,14 @@ mod test {
 
         // create layers and add nodes to layers
         sg.create_layer();
-        sg.top_layer_mut()?.add_node(node1);
-        sg.create_layer();
         sg.top_layer_mut()?.add_node(node2);
         sg.top_layer_mut()?.add_node(node3);
+        sg.create_layer();
+        sg.top_layer_mut()?.add_node(node1);
 
         // nesting
-        sg.nest(id2).under(id1)?;
-        sg.nest(id3).under(id1)?;
+        assert!(sg.nest(id2).under(id1).is_ok());
+        assert!(sg.nest(id3).under(id1).is_ok());
         assert_eq!(sg.get_node(id1)?.children_ids, vec![id2, id3]);
         assert_eq!(sg.get_node(id2)?.parent_id, Some(id1));
         assert_eq!(sg.get_node(id3)?.parent_id, Some(id1));
@@ -454,18 +475,18 @@ mod test {
         let meta2 = EdgeMeta {
             desc: "is supporting".to_string(),
         };
-        sg.get_layer_mut(1)?.add_edge(id2, id3, meta1)?;
-        sg.get_layer_mut(1)?.add_edge(id3, id2, meta2)?;
+        sg.get_layer_mut(0)?.add_edge(id2, id3, meta1)?;
+        sg.get_layer_mut(0)?.add_edge(id3, id2, meta2)?;
         assert_eq!(sg.get_edges(id2)?.len(), 1);
         assert_eq!(sg.get_edges(id3)?.len(), 1);
 
         // delete edge
-        sg.get_layer_mut(1)?.del_edge(id2, id3)?;
+        sg.get_layer_mut(0)?.del_edge(id2, id3)?;
         assert_eq!(sg.get_edges(id2)?.len(), 0);
         assert_eq!(sg.get_edges(id3)?.len(), 1);
 
         // delete invalid edge
-        assert!(sg.get_layer_mut(1)?.del_edge(id2, id3).is_err());
+        assert!(sg.get_layer_mut(0)?.del_edge(id2, id3).is_err());
 
         // delete node
 
