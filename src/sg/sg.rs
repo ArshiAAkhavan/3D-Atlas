@@ -1,5 +1,5 @@
+use super::layer::{Edge, EdgeView, Feature, Layer, Node};
 use crate::error::{AtlasError, Result};
-use crate::layer::{Edge, EdgeView, Feature, Layer, Node};
 
 /// A hierarchical representation of objects and their relationships in a 3D environment.
 /// The scene graph is organized into layers, where each layer contains nodes representing objects.
@@ -255,7 +255,6 @@ impl<'a> NestUnder<'a> {
 mod test {
     use super::*;
     use crate::error::Result;
-    use crate::layer::EdgeMeta;
 
     #[test]
     fn api() -> Result<()> {
@@ -284,14 +283,10 @@ mod test {
         assert_eq!(sg.get_node(id3)?.parent_id, Some(id1));
 
         // add edge
-        let meta1 = EdgeMeta {
-            desc: "connected to".to_string(),
-        };
-        let meta2 = EdgeMeta {
-            desc: "is supporting".to_string(),
-        };
-        sg.get_layer_mut(0)?.add_edge(id2, id3, meta1)?;
-        sg.get_layer_mut(0)?.add_edge(id3, id2, meta2)?;
+        sg.get_layer_mut(0)?
+            .add_edge(id2, Edge::new(id3, "connected to"))?;
+        sg.get_layer_mut(0)?
+            .add_edge(id3, Edge::new(id2, "is supporting"))?;
         assert_eq!(sg.get_edges(id2)?.len(), 1);
         assert_eq!(sg.get_edges(id3)?.len(), 1);
 
@@ -357,34 +352,14 @@ mod test {
         sg.top_layer_mut()?.add_node(chair);
         sg.top_layer_mut()?.add_node(clock);
 
-        sg.top_layer_mut()?.add_edge(
-            clock_id,
-            wall_id,
-            EdgeMeta {
-                desc: "supported by".into(),
-            },
-        )?;
-        sg.top_layer_mut()?.add_edge(
-            table_id,
-            chair_id,
-            EdgeMeta {
-                desc: "next to".into(),
-            },
-        )?;
-        sg.top_layer_mut()?.add_edge(
-            chair_id,
-            table_id,
-            EdgeMeta {
-                desc: "next to".into(),
-            },
-        )?;
-        sg.top_layer_mut()?.add_edge(
-            table_id,
-            wall_id,
-            EdgeMeta {
-                desc: "in front of".into(),
-            },
-        )?;
+        sg.top_layer_mut()?
+            .add_edge(clock_id, Edge::new(wall_id, "supported by"))?;
+        sg.top_layer_mut()?
+            .add_edge(table_id, Edge::new(chair_id, "next to"))?;
+        sg.top_layer_mut()?
+            .add_edge(chair_id, Edge::new(table_id, "next to"))?;
+        sg.top_layer_mut()?
+            .add_edge(table_id, Edge::new(wall_id, "in front of"))?;
 
         // query nodes by label
         let furniture = sg.nodes_with_features(&[Feature::semantic("type", "furniture")]);

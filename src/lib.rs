@@ -1,6 +1,5 @@
 mod error;
-mod layer;
 mod sg;
+mod update;
 
-pub use sg::SceneGraph;
-pub use layer::Feature;
+pub use sg::{SceneGraph, Layer, Node, Edge, Feature};
