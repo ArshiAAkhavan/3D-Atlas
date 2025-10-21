@@ -49,6 +49,14 @@ impl SceneGraph {
             .get(index)
             .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
     }
+
+    /// Merge an update into the scene graph
+    pub fn merge(&mut self, update: SceneGraph) -> Result<()> {
+        self.layers
+            .iter_mut()
+            .zip(update.layers)
+            .try_for_each(|(layer, update)| layer.merge(update))
+    }
 }
 
 /// Query methods for retrieving nodes and edges
