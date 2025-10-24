@@ -1,7 +1,7 @@
 mod error;
+mod server;
 mod sg;
 mod update;
-mod server;
 
+pub use sg::{Layer, SceneGraph};
 use update::UpdatePipeline;
-pub use sg::{SceneGraph, Layer, Node, Edge, Feature};
