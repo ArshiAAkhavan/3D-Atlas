@@ -16,6 +16,7 @@ pub struct SceneGraph {
     /// representation of the scene.
     layers: Vec<Layer>,
 
+    /// Counter to assign unique IDs to nodes.
     node_counter: usize,
 }
 
@@ -27,12 +28,7 @@ impl SceneGraph {
         }
     }
 
-    pub fn new_semantic_layer(&mut self) -> &mut Layer {
-        self.layers.push(Layer::new());
-        self.layers.last_mut().unwrap()
-    }
-
-    pub fn new_physical_layer(&mut self) -> &mut Layer {
+    pub fn new_layer(&mut self) -> &mut Layer {
         self.layers.push(Layer::new());
         self.layers.last_mut().unwrap()
     }
@@ -156,8 +152,8 @@ impl SceneGraph {
     /// let id2 = node2.id;
     ///
     /// // Create a layer and add nodes to it
-    /// sg.new_semantic_layer();
-    /// sg.new_semantic_layer();
+    /// sg.new_layer();
+    /// sg.new_layer();
     /// sg.layer_mut(0).unwrap().push_node(node1);
     /// sg.layer_mut(1).unwrap().push_node(node2);
     ///

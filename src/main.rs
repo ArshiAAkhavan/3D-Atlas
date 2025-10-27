@@ -1,8 +1,9 @@
-// use std::collections::HashSet;
-// use std::fs::File;
-// use std::io::BufReader;
-//
-// use atlas::SceneGraph;
+use atlas::Server;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut srv = Server::new();
+
+    let sg = srv.scene_graph()?.clone();
+
+    srv.update(sg);
     Ok(())
 }

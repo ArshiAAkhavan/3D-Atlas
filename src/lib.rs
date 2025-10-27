@@ -3,5 +3,7 @@ mod server;
 mod sg;
 mod update;
 
-pub use sg::{Layer, SceneGraph};
 use update::UpdatePipeline;
+
+pub use server::Server;
+pub use sg::{Layer, SceneGraph};

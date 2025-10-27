@@ -26,11 +26,11 @@ mod test {
         let id1 = node1.id;
 
         // create a semantic layer and add nodes to layers
-        let semantic_layer = sg.new_semantic_layer();
+        let semantic_layer = sg.new_layer();
         semantic_layer.push_node(node2);
         semantic_layer.push_node(node3);
         // create the second semantic layer
-        let semantic_layer = sg.new_semantic_layer();
+        let semantic_layer = sg.new_layer();
         semantic_layer.push_node(node1);
 
         // nesting
@@ -102,7 +102,7 @@ mod test {
         let clock_id = clock.id;
 
         // create layers and add nodes to layers
-        let l = sg.new_semantic_layer();
+        let l = sg.new_layer();
         l.push_node(table);
         l.push_node(wall);
         l.push_node(chair);
