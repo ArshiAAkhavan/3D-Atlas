@@ -114,20 +114,20 @@ mod test {
         l.add_edge(table_id, wall_id, "in front of")?;
 
         // query nodes by label
-        let furniture = sg.nodes_having_features(&["type"]);
+        let furniture = sg.nodes_having(&["type"]);
         assert_eq!(furniture.len(), 1); // only one layer in the scene graph
         assert_eq!(furniture[0].len(), 4); // all nodes have "type" feature
-        let furniture = sg.nodes_matching_features(&[&Feature::new("type", "furniture")]);
+        let furniture = sg.nodes_matching(&[&Feature::new("type", "furniture")]);
         assert_eq!(furniture.len(), 1); // only one layer in the scene graph
         assert_eq!(furniture[0].len(), 2); // only chair and table are furniture 
         assert!(furniture[0].iter().any(|n| n.id == chair_id));
         assert!(furniture[0].iter().any(|n| n.id == table_id));
 
         // query nodes by affordance
-        let sit_nodes = sg.nodes_having_features(&["affordance"]);
+        let sit_nodes = sg.nodes_having(&["affordance"]);
         assert_eq!(sit_nodes.len(), 1); // only one layer in the scene graph
         assert_eq!(sit_nodes[0].len(), 3); // chair, table, wall have "affordance" feature
-        let sit_nodes = sg.nodes_matching_features(&[&Feature::new("affordance","sit")]);
+        let sit_nodes = sg.nodes_matching(&[&Feature::new("affordance","sit")]);
         assert_eq!(sit_nodes.len(), 1); // only one layer in the scene graph
         assert_eq!(sit_nodes[0].len(), 1); // only chair has "sit" affordance
         assert_eq!(sit_nodes[0][0].id, chair_id);

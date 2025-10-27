@@ -28,22 +28,19 @@ impl SceneGraph {
         }
     }
 
+    /// Create a new layer and add it to the scene graph.
     pub fn new_layer(&mut self) -> &mut Layer {
         self.layers.push(Layer::new());
         self.layers.last_mut().unwrap()
     }
 
-    pub fn new_coordinates(&mut self, x: f32, y: f32, z: f32, features: Vec<Feature>) -> Node {
-        let node = Node::new(self.node_counter, features, Some(Coordinate::new(x, y, z)));
-        self.node_counter += 1;
-        node
-    }
-    pub fn new_node(&mut self, features: Vec<Feature>) -> Node {
-        let node = Node::new(self.node_counter, features, None);
-        self.node_counter += 1;
-        node
-    }
+}
 
+/// SceneGraph Update
+impl SceneGraph {
+    /// Merge another SceneGraph into this one.
+    /// This Process will not delete any nodes or edges, but will apply any change in nodes
+    /// features and/or edges between two nodes that exist in both SceneGraphs.
     pub fn merge(&mut self, m: SceneGraph) -> Result<()> {
         for mergee_node in m.layers.iter().flat_map(|l| l.nodes.iter()) {
             if let Some(pid) = mergee_node.pid {
@@ -52,7 +49,7 @@ impl SceneGraph {
         }
         self.layers
             .iter_mut()
-            .zip(m.layers.into_iter())
+            .zip(m.layers)
             .try_for_each(|(l1, l2)| l1.merge(l2))
     }
 }
@@ -83,22 +80,8 @@ impl SceneGraph {
             .get(index)
             .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
     }
-}
-/// Node Accessors
-impl SceneGraph {
-    pub fn node(&self, nid: usize) -> Result<&Node> {
-        self.layers
-            .iter()
-            .find_map(|layer| layer.node(nid).ok())
-            .ok_or(AtlasError::NodeNotFound)
-    }
-    pub fn node_mut(&mut self, nid: usize) -> Result<&mut Node> {
-        self.layers
-            .iter_mut()
-            .find_map(|layer| layer.node_mut(nid).ok())
-            .ok_or(AtlasError::NodeNotFound)
-    }
 
+    /// Get the layer index of a node by its ID.
     fn layer_of(&mut self, nid: usize) -> Result<usize, AtlasError> {
         let nestee_layer_id = self
             .layers
@@ -109,8 +92,41 @@ impl SceneGraph {
     }
 }
 
+/// Node Accessors
+impl SceneGraph {
+    pub fn node(&self, nid: usize) -> Result<&Node> {
+        self.layers
+            .iter()
+            .find_map(|layer| layer.node(nid).ok())
+            .ok_or(AtlasError::NodeNotFound)
+    }
+
+    pub fn node_mut(&mut self, nid: usize) -> Result<&mut Node> {
+        self.layers
+            .iter_mut()
+            .find_map(|layer| layer.node_mut(nid).ok())
+            .ok_or(AtlasError::NodeNotFound)
+    }
+
+}
+
 /// Node Manipulation
 impl SceneGraph {
+
+    /// Create a new Metric Node with specified coordinates and features.
+    pub fn new_coordinates(&mut self, x: f32, y: f32, z: f32, features: Vec<Feature>) -> Node {
+        let node = Node::new(self.node_counter, features, Some(Coordinate::new(x, y, z)));
+        self.node_counter += 1;
+        node
+    }
+
+    /// Create a new Semantic Node with specified features.
+    pub fn new_node(&mut self, features: Vec<Feature>) -> Node {
+        let node = Node::new(self.node_counter, features, None);
+        self.node_counter += 1;
+        node
+    }
+
     /// Delete a node by its ID from the Scene Graph.
     /// This will also recursively delete all child nodes of the specified node.
     /// If the node has a parent, it will be removed from the parent's list of children.
@@ -174,18 +190,18 @@ impl SceneGraph {
 /// Query
 impl SceneGraph {
     /// Get List of all nodes having a specific set of features.
-    pub fn nodes_having_features(&self, keys: &[&str]) -> Vec<Vec<&Node>> {
+    pub fn nodes_having(&self, keys: &[&str]) -> Vec<Vec<&Node>> {
         self.layers
             .iter()
-            .map(|l| l.nodes_having_features(keys))
+            .map(|l| l.nodes_having(keys))
             .collect()
     }
 
     /// Get List of all nodes matching a specific set of features.
-    pub fn nodes_matching_features(&self, features: &[&Feature]) -> Vec<Vec<&Node>> {
+    pub fn nodes_matching(&self, features: &[&Feature]) -> Vec<Vec<&Node>> {
         self.layers
             .iter()
-            .map(|l| l.nodes_matching_features(features))
+            .map(|l| l.nodes_matching(features))
             .collect()
     }
 
