@@ -3,23 +3,12 @@ use crate::error::{AtlasError, Result};
 
 #[derive(Debug, Clone)]
 pub struct Layer {
-    id: usize,
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
 }
 
 impl Layer {
-    pub fn push_node(&mut self, node: Node) {
-        self.nodes.push(node);
-    }
-
-}
-
-impl Layer {
-    pub(super) fn new(id: usize) -> Self {
-        Self {
-            id,
-            nodes: Vec::new(),
-        }
+    pub(super) fn new() -> Self {
+        Self { nodes: Vec::new() }
     }
 
     pub fn node(&self, id: usize) -> Result<&Node> {
@@ -49,11 +38,15 @@ impl Layer {
         Ok(node)
     }
 
+    pub fn push_node(&mut self, node: Node) {
+        self.nodes.push(node);
+    }
+
     pub fn add_edge(&mut self, src: usize, dst: usize, desc: &str) -> Result<()> {
         // Ensure destination node exists
         let _ = self.node(dst)?;
         let src_node = self.node_mut(src)?;
-        src_node.edges.push(Edge::new(src,dst, desc));
+        src_node.edges.push(Edge::new(src, dst, desc));
         Ok(())
     }
 
@@ -106,5 +99,20 @@ impl Layer {
             .iter()
             .flat_map(|n| n.edges.iter().filter(|e| e.dst == dst))
             .collect()
+    }
+
+    pub fn merge(&mut self, l2: Layer) -> std::result::Result<(), AtlasError> {
+        for node in l2.nodes {
+            match self.node_mut(node.id) {
+                Ok(existing_node) => {
+                    existing_node.merge(node)?;
+                }
+                Err(AtlasError::NodeNotFound) => {
+                    self.push_node(node.clone());
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
     }
 }

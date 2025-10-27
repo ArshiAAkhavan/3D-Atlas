@@ -52,6 +52,33 @@ impl Node {
             self.children.push(nid);
         }
     }
+
+    pub fn merge(&mut self, mergee: Node) -> Result<()> {
+        mergee.features.into_iter().for_each(|feature| {
+            self.set_feature(feature);
+        });
+        self.coordinates = mergee.coordinates;
+        for mergee_edge in mergee.edges {
+            match self.edges.iter_mut().find(|e| e.dst == mergee_edge.dst) {
+                Some(e) => e.desc = mergee_edge.desc,
+                None => self.edges.push(mergee_edge),
+            }
+        }
+        Ok(())
+    }
+
+    fn set_feature(&mut self, feature: Feature) {
+        if !self.has_feature(&feature.key) {
+            self.features.push(feature);
+        } else {
+            for f in &mut self.features {
+                if f.key == feature.key {
+                    f.value = feature.value;
+                    break;
+                }
+            }
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -69,7 +96,7 @@ impl Coordinate {
 #[derive(Default, Debug, Clone)]
 pub struct Semantic;
 
-#[derive(Debug, Clone,Eq,PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Feature {
     key: String,
     value: String,

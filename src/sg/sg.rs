@@ -28,14 +28,12 @@ impl SceneGraph {
     }
 
     pub fn new_semantic_layer(&mut self) -> &mut Layer {
-        let lid = self.layers.len() as usize;
-        self.layers.push(Layer::new(lid));
+        self.layers.push(Layer::new());
         self.layers.last_mut().unwrap()
     }
 
     pub fn new_physical_layer(&mut self) -> &mut Layer {
-        let lid = self.layers.len() as usize;
-        self.layers.push(Layer::new(lid));
+        self.layers.push(Layer::new());
         self.layers.last_mut().unwrap()
     }
 
@@ -50,8 +48,16 @@ impl SceneGraph {
         node
     }
 
-    pub(crate) fn merge(&self, u: SceneGraph)-> Result<()> {
-        todo!()
+    pub fn merge(&mut self, m: SceneGraph) -> Result<()> {
+        for mergee_node in m.layers.iter().flat_map(|l| l.nodes.iter()) {
+            if let Some(pid) = mergee_node.pid {
+                self.nest(mergee_node.id).under(pid)?;
+            }
+        }
+        self.layers
+            .iter_mut()
+            .zip(m.layers.into_iter())
+            .try_for_each(|(l1, l2)| l1.merge(l2))
     }
 }
 
