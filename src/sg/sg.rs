@@ -269,19 +269,19 @@ impl SceneGraph {
             .filter_map(|n| n.pid)
             .collect::<HashSet<_>>()
             .into_iter()
-            .collect::<Vec<usize>>();
+            .collect::<Vec<_>>();
 
         let mut layers = vec![first_layer];
 
         for mut layer in subgraph_layers.into_iter().skip(1) {
-            layer.retain_nodes(&retain_nodes.into_iter().collect::<Vec<usize>>());
+            layer.retain_nodes(&retain_nodes.into_iter().collect::<Vec<_>>());
             retain_nodes = layer
                 .nodes
                 .iter()
                 .filter_map(|n| n.pid)
                 .collect::<HashSet<_>>()
                 .into_iter()
-                .collect::<Vec<usize>>();
+                .collect::<Vec<_>>();
             layers.push(layer);
         }
         Ok(Self {
