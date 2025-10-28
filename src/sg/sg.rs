@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::{Coordinate, Edge, Feature, Layer, Node, Observer};
 use crate::error::{AtlasError, Result};
 
@@ -56,6 +58,9 @@ impl SceneGraph {
             // Prune edges to only include those between nodes in the subgraph
             layer.prune();
             layers.push(layer);
+            if root_layer_id < layers.len() {
+                break; // Reached the bottom layer
+            }
             cur_layer = match self.layer(root_layer_id - layers.len()) {
                 Ok(l) => l,
                 Err(_) => break, // No more layers to process
@@ -63,7 +68,18 @@ impl SceneGraph {
             nodes_to_visit = next_nodes_to_visit;
         }
         // Ensure the subgraph has the same number of layers as the original up to the root layer
-        layers.extend(std::iter::repeat_with(Layer::new).take(root_layer_id - layers.len()));
+        if root_layer_id > layers.len() {
+            layers.extend(std::iter::repeat_with(Layer::new).take(root_layer_id - layers.len()));
+        }
+
+        // remove the parent id of the root node.
+        // root node and first layer do exist in the subgraph hence the unwraps.
+        layers
+            .first_mut()
+            .unwrap()
+            .node_mut(root_node_id)
+            .unwrap()
+            .pid = None;
 
         Ok(Self {
             node_counter: self.node_counter,
@@ -111,7 +127,7 @@ impl SceneGraph {
     }
 
     /// Get an immutable reference to a layer by its index.
-    fn layer(&self, index: usize) -> Result<&Layer> {
+    pub fn layer(&self, index: usize) -> Result<&Layer> {
         self.layers
             .get(index)
             .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
@@ -239,18 +255,33 @@ impl SceneGraph {
     /// Get a subgraph containing nodes within the field of view of an observer and are descendants of the specified root node.
     /// The check is done using the nodes' coordinates and nodes without coordinates are pruned.
     /// nodes from upper layers that have no descendants within the field of view are also pruned.
-    pub fn observable_nodes(&self, observer: Observer, root_node_id: usize) -> Result<Self> {
-        let mut layers = Vec::new();
-        let mut retain_nodes = Vec::new();
-        for (lid, mut layer) in self.subgraph(root_node_id)?.layers.into_iter().enumerate() {
-            // For the first layer, retain all nodes and then check for observability
-            if lid != 0 {
-                layer.retain_nodes(&retain_nodes);
-            }
+    pub fn visible_subgraph(&self, observer: Observer, root_node_id: usize) -> Result<Self> {
+        let subgraph_layers = self.subgraph(root_node_id)?.layers;
 
-            let layer = layer.observable_nodes(observer);
-            retain_nodes.clear();
-            retain_nodes.extend(layer.nodes.iter().filter_map(|n| n.pid));
+        if subgraph_layers.is_empty() {
+            return Ok(Default::default());
+        }
+        let first_layer = subgraph_layers[0].observable_nodes(observer);
+
+        let mut retain_nodes = first_layer
+            .nodes
+            .iter()
+            .filter_map(|n| n.pid)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<usize>>();
+
+        let mut layers = vec![first_layer];
+
+        for mut layer in subgraph_layers.into_iter().skip(1) {
+            layer.retain_nodes(&retain_nodes.into_iter().collect::<Vec<usize>>());
+            retain_nodes = layer
+                .nodes
+                .iter()
+                .filter_map(|n| n.pid)
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect::<Vec<usize>>();
             layers.push(layer);
         }
         Ok(Self {

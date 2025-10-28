@@ -192,9 +192,9 @@ mod test {
     #[test]
     fn fov_query() {
         let pts = [
-            Coordinate::new(1.0, 1.0, 1.0), // inside
-            Coordinate::new(1.0, 1.0, 1.0), // inside
-            Coordinate::new(1.0, 1.0, 1.0), // inside
+            Coordinate::new(0.0, 0.0, 1.0), // inside
+            Coordinate::new(0.0, 0.0, 1.0), // inside
+            Coordinate::new(0.0, 0.0, 1.0), // inside
             Coordinate::new(6.0, 6.0, 6.0), // outside
             Coordinate::new(6.0, 6.0, 6.0), // outside
             Coordinate::new(6.0, 6.0, 6.0), // outside
@@ -216,6 +216,7 @@ mod test {
 
         let cone = cone();
         let observed_layer = layer.observable_nodes(cone);
+        assert_eq!(observed_layer.nodes.len(), 3);
         for node in observed_layer.nodes {
             // all nodes should have coordinates to be observable
             assert!(node.coordinates.is_some());

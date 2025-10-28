@@ -118,4 +118,22 @@ mod test {
             assert_eq!(cone.observers(p), *is_observable);
         }
     }
+
+    #[test]
+    fn cone_frustum_no_rotation() {
+        // Observer at origin, yaw=30°, pitch=5°, roll=0°
+        let pos = Vec3::new(0.0, 0.0, 0.0);
+        let yaw = 0_f32.to_radians();
+        let pitch = 0_f32.to_radians();
+        let roll = 0_f32.to_radians();
+
+        // Cone View Frustum: half-angle=35°, near=0.6, far=6.0
+        let half_angle = 35_f32.to_radians();
+        let near = 0.6;
+        let far = 6.0;
+
+        let cone = Observer::from_ypr(pos, yaw, pitch, roll, half_angle, near, far);
+        assert!(cone.observers(&Vec3::new(0.0, 0.0, 1.0)));
+        assert!(!cone.observers(&Vec3::new(6.0, 6.0, 6.0)));
+    }
 }
