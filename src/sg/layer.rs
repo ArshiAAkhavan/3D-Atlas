@@ -171,12 +171,12 @@ impl Layer {
 
 #[cfg(test)]
 mod test {
+    use super::super::Coordinate;
     use super::*;
-    use glam::Vec3;
 
     fn cone() -> Observer {
         // Observer at origin, yaw=30°, pitch=5°, roll=0°
-        let pos = Vec3::new(0.0, 0.0, 0.0);
+        let pos = Coordinate::new(0.0, 0.0, 0.0);
         let yaw = 0_f32.to_radians();
         let pitch = 0_f32.to_radians();
         let roll = 0_f32.to_radians();
@@ -192,13 +192,13 @@ mod test {
     #[test]
     fn fov_query() {
         let pts = [
-            Vec3::new(1.0, 1.0, 1.0), // inside
-            Vec3::new(1.0, 1.0, 1.0), // inside
-            Vec3::new(1.0, 1.0, 1.0), // inside
-            Vec3::new(6.0, 6.0, 6.0), // outside
-            Vec3::new(6.0, 6.0, 6.0), // outside
-            Vec3::new(6.0, 6.0, 6.0), // outside
-            Vec3::new(6.0, 6.0, 6.0), // outside
+            Coordinate::new(1.0, 1.0, 1.0), // inside
+            Coordinate::new(1.0, 1.0, 1.0), // inside
+            Coordinate::new(1.0, 1.0, 1.0), // inside
+            Coordinate::new(6.0, 6.0, 6.0), // outside
+            Coordinate::new(6.0, 6.0, 6.0), // outside
+            Coordinate::new(6.0, 6.0, 6.0), // outside
+            Coordinate::new(6.0, 6.0, 6.0), // outside
         ];
         let mut layer = Layer::new();
         for (i, p) in pts.iter().enumerate() {
