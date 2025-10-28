@@ -168,3 +168,64 @@ impl Layer {
             .for_each(|n| n.edges.retain(|e| node_ids.contains(&e.dst)));
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use glam::Vec3;
+
+    fn cone() -> Observer {
+        // Observer at origin, yaw=30°, pitch=5°, roll=0°
+        let pos = Vec3::new(0.0, 0.0, 0.0);
+        let yaw = 0_f32.to_radians();
+        let pitch = 0_f32.to_radians();
+        let roll = 0_f32.to_radians();
+
+        // Cone View Frustum: half-angle=35°, near=0.6, far=6.0
+        let half_angle = 35_f32.to_radians();
+        let near = 0.6;
+        let far = 6.0;
+
+        Observer::from_ypr(pos, yaw, pitch, roll, half_angle, near, far)
+    }
+
+    #[test]
+    fn fov_query() {
+        let pts = [
+            Vec3::new(1.0, 1.0, 1.0), // inside
+            Vec3::new(1.0, 1.0, 1.0), // inside
+            Vec3::new(1.0, 1.0, 1.0), // inside
+            Vec3::new(6.0, 6.0, 6.0), // outside
+            Vec3::new(6.0, 6.0, 6.0), // outside
+            Vec3::new(6.0, 6.0, 6.0), // outside
+            Vec3::new(6.0, 6.0, 6.0), // outside
+        ];
+        let mut layer = Layer::new();
+        for (i, p) in pts.iter().enumerate() {
+            layer.push_node(Node::new(i, Vec::new(), Some(*p)));
+        }
+        // Node with no coordinates
+        layer.push_node(Node::new(pts.len(), Vec::new(), None));
+
+        // fully connecting nodes to each other
+        for src in 0..layer.nodes.len() {
+            for dst in 0..layer.nodes.len() {
+                layer.add_edge(src, dst, "connect").unwrap();
+            }
+        }
+
+        let cone = cone();
+        let observed_layer = layer.observable_nodes(cone);
+        for node in observed_layer.nodes {
+            // all nodes should have coordinates to be observable
+            assert!(node.coordinates.is_some());
+            // all nodes should be within the cone frustum
+            assert!(cone.observers(&node.coordinates.unwrap()));
+            // nodes 0,1,2 are inside, rest are outside, so only edges to 0,1,2 should remain
+            assert_eq!(
+                node.edges.iter().map(|e| e.dst).collect::<Vec<_>>(),
+                [0, 1, 2]
+            )
+        }
+    }
+}
