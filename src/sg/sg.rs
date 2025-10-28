@@ -1,6 +1,4 @@
-use super::layer::Layer;
-use super::node::Edge;
-use super::{Coordinate, Feature, Node};
+use super::{Coordinate, Edge, Feature, Layer, Node, Observer};
 use crate::error::{AtlasError, Result};
 
 /// A hierarchical representation of objects and their relationships in a 3D environment.
@@ -34,6 +32,44 @@ impl SceneGraph {
         self.layers.last_mut().unwrap()
     }
 
+    /// Create a subgraph rooted at the specified node ID.
+    /// The subgraph includes the specified node and all its descendants.
+    /// If the node is not found, an error is returned.
+    fn subgraph(&self, root_node_id: usize) -> Result<SceneGraph> {
+        let mut layers = Vec::new();
+        let mut nodes_to_visit = vec![root_node_id];
+        let root_layer_id = self.layer_of(root_node_id)?;
+        let mut cur_layer = self.layer(root_layer_id)?;
+
+        // Starting from the root layer, traverse downwards to build the subgraph
+        // at each layer, collecting nodes that are children of the nodes in the previous layer
+        // and adding their children to the next layer to visit.
+        while !nodes_to_visit.is_empty() {
+            let mut layer = Layer::new();
+            let mut next_nodes_to_visit = Vec::new();
+            for nid in nodes_to_visit {
+                if let Ok(node) = cur_layer.node(nid) {
+                    next_nodes_to_visit.extend(node.children.iter());
+                    layer.push_node(node.clone());
+                }
+            }
+            // Prune edges to only include those between nodes in the subgraph
+            layer.prune();
+            layers.push(layer);
+            cur_layer = match self.layer(root_layer_id - layers.len()) {
+                Ok(l) => l,
+                Err(_) => break, // No more layers to process
+            };
+            nodes_to_visit = next_nodes_to_visit;
+        }
+        // Ensure the subgraph has the same number of layers as the original up to the root layer
+        layers.extend(std::iter::repeat_with(Layer::new).take(root_layer_id - layers.len()));
+
+        Ok(Self {
+            node_counter: self.node_counter,
+            layers: layers.into_iter().rev().collect(),
+        })
+    }
 }
 
 /// SceneGraph Update
@@ -82,7 +118,7 @@ impl SceneGraph {
     }
 
     /// Get the layer index of a node by its ID.
-    fn layer_of(&mut self, nid: usize) -> Result<usize, AtlasError> {
+    fn layer_of(&self, nid: usize) -> Result<usize, AtlasError> {
         let nestee_layer_id = self
             .layers
             .iter()
@@ -107,12 +143,10 @@ impl SceneGraph {
             .find_map(|layer| layer.node_mut(nid).ok())
             .ok_or(AtlasError::NodeNotFound)
     }
-
 }
 
 /// Node Manipulation
 impl SceneGraph {
-
     /// Create a new Metric Node with specified coordinates and features.
     pub fn new_coordinates(&mut self, x: f32, y: f32, z: f32, features: Vec<Feature>) -> Node {
         let node = Node::new(self.node_counter, features, Some(Coordinate::new(x, y, z)));
@@ -191,10 +225,7 @@ impl SceneGraph {
 impl SceneGraph {
     /// Get List of all nodes having a specific set of features.
     pub fn nodes_having(&self, keys: &[&str]) -> Vec<Vec<&Node>> {
-        self.layers
-            .iter()
-            .map(|l| l.nodes_having(keys))
-            .collect()
+        self.layers.iter().map(|l| l.nodes_having(keys)).collect()
     }
 
     /// Get List of all nodes matching a specific set of features.
@@ -203,6 +234,29 @@ impl SceneGraph {
             .iter()
             .map(|l| l.nodes_matching(features))
             .collect()
+    }
+
+    /// Get a subgraph containing nodes within the field of view of an observer and are descendants of the specified root node.
+    /// The check is done using the nodes' coordinates and nodes without coordinates are pruned.
+    /// nodes from upper layers that have no descendants within the field of view are also pruned.
+    pub fn observable_nodes(&self, observer: Observer, root_node_id: usize) -> Result<Self> {
+        let mut layers = Vec::new();
+        let mut retain_nodes = Vec::new();
+        for (lid, mut layer) in self.subgraph(root_node_id)?.layers.into_iter().enumerate() {
+            // For the first layer, retain all nodes and then check for observability
+            if lid != 0 {
+                layer.retain_nodes(&retain_nodes);
+            }
+
+            let layer = layer.observable_nodes(observer);
+            retain_nodes.clear();
+            retain_nodes.extend(layer.nodes.iter().filter_map(|n| n.pid));
+            layers.push(layer);
+        }
+        Ok(Self {
+            node_counter: self.node_counter,
+            layers,
+        })
     }
 
     /// Get List of all edges matching a specific description.

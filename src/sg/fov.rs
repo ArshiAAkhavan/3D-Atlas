@@ -1,0 +1,87 @@
+use glam::{Quat, Vec3};
+
+/// Observer represent a Field-of-View cone frustum in 3D space.
+/// The cone is defined by a position, orientation (quaternion),
+/// and a half-angle (in radians). The frustum is further limited
+/// by near and far distances.
+///
+///  ↑↑            O <---------- observer position
+///  ||           /|\
+///  ||          / | \   
+///  ||near     /  |  \  
+///  ||        /   |-θ-\ <------ half_angle
+///  ||       /         \
+///  |↓      *-----------* <---- Chord with `near` radius
+///  |      / observable  \
+///  |far  /    volume     \
+///  ↓    *-----------------* <- Chord with `far` radius
+///
+#[derive(Clone, Copy, Debug)]
+pub struct Observer {
+    /// Position of the observer/camera in world space.
+    position: Vec3,
+
+    /// Orientation of the observer/camera as a quaternion.
+    rotation: Quat,
+
+    /// `half_angle` represents the maximum angle (in radians) from the forward
+    /// direction that is still considered "inside" the field of view.
+    half_angle_cos: f32,
+
+    /// Near distance of the frustum. Points closer than this are not
+    /// observed by the observer.
+    near: f32,
+
+    /// Far distance of the frustum. Points farther than this are not
+    /// observed by the observer.
+    far: f32,
+}
+
+impl Observer {
+    /// Build from yaw/pitch/roll (radians) in a right-handed XYZ system:
+    /// yaw: +Y, pitch: +X, roll: +Z. Rotation order: yaw * pitch * roll.
+    /// half_angle: radians.
+    /// near, far: distances.
+    /// yaw, pitch, and roll: radians.
+    fn from_ypr(
+        pos: Vec3,
+        yaw: f32,
+        pitch: f32,
+        roll: f32,
+        half_angle: f32,
+        near: f32,
+        far: f32,
+    ) -> Self {
+        let r_yaw = Quat::from_rotation_y(yaw);
+        let r_pitch = Quat::from_rotation_x(pitch);
+        let r_roll = Quat::from_rotation_z(roll);
+        let rot = r_yaw * r_pitch * r_roll;
+        Self {
+            position: pos,
+            rotation: rot,
+            half_angle_cos: half_angle.cos(),
+            near,
+            far,
+        }
+    }
+
+    /// Forward vector in world space (+Z is forward in local frame).
+    #[inline]
+    fn forward(&self) -> Vec3 {
+        (self.rotation * Vec3::Z).normalize()
+    }
+
+    /// Cone-frustum membership test.
+    pub fn observers(&self, p: Vec3) -> bool {
+        // vector from observer to point
+        let v = p - self.position;
+        // reachability test
+        let d = v.length();
+        if d < self.near || d > self.far || d == 0.0 {
+            return false;
+        }
+        let dir = v / d;
+        let cos_theta = dir.dot(self.forward()); // both unit
+        cos_theta >= self.half_angle_cos
+    }
+}

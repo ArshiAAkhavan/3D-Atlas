@@ -1,12 +1,14 @@
 mod layer;
 mod node;
 mod sg;
+mod fov;
 
 // use layer::Layer;
 use node::{Coordinate, Edge, Feature, Node};
 
 pub use layer::Layer;
 pub use sg::SceneGraph;
+pub use fov::Observer;
 
 #[cfg(test)]
 mod test {

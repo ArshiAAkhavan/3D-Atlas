@@ -7,7 +7,7 @@ pub struct Node {
     pub children: Vec<usize>,
     pub(super) edges: Vec<Edge>,
     pub features: Vec<Feature>,
-    coordinates: Option<Coordinate>,
+    pub coordinates: Option<Coordinate>,
 }
 
 impl Node {
@@ -81,17 +81,7 @@ impl Node {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct Coordinate {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-impl Coordinate {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
-    }
-}
+pub type Coordinate = glam::Vec3;
 
 #[derive(Default, Debug, Clone)]
 pub struct Semantic;

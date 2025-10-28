@@ -1,6 +1,5 @@
-use super::{Edge, Node};
+use super::{Edge, Node, Observer};
 use crate::error::{AtlasError, Result};
-
 
 /// A Layer in the Scene Graph containing multiple Nodes and their Edges.
 /// Each Layer is a well-defined Graph structure representing a specific aspect of the scene,
@@ -73,6 +72,13 @@ impl Layer {
         src_node.edges.swap_remove(index);
         Ok(())
     }
+
+    /// Retain only the nodes specified in the retain_nodes list.
+    /// All other nodes and their associated edges will be removed from the layer.
+    pub fn retain_nodes(&mut self, retain_nodes: &[usize]) {
+        self.nodes.retain(|node| retain_nodes.contains(&node.id));
+        self.prune();
+    }
 }
 
 /// Query
@@ -116,9 +122,26 @@ impl Layer {
             .flat_map(|n| n.edges.iter().filter(|e| e.dst == dst))
             .collect()
     }
-}
-impl Layer {
 
+    /// Get a new Layer containing only nodes within the observer's field of view.
+    /// The check is done using the nodes' coordinates and nodes without coordinates are ignored.
+    pub fn observable_nodes(&self, observer: Observer) -> Self {
+        let nodes = self
+            .nodes
+            .iter()
+            .filter(|n| n.coordinates.is_some())
+            .filter(|n| observer.observers(n.coordinates.unwrap()))
+            .cloned()
+            .collect::<Vec<Node>>();
+        let mut l = Self { nodes };
+
+        // prune edges to out-of-view nodes
+        l.prune();
+        l
+    }
+}
+
+impl Layer {
     /// Merge another layer into this one.
     /// Nodes with the same ID will be merged, while new nodes will be added.
     /// Deleting Nodes and edges is not supported in this operation.
@@ -135,5 +158,13 @@ impl Layer {
             }
         }
         Ok(())
+    }
+
+    /// Prune edges that point to non-existing nodes in the layer.
+    pub fn prune(&mut self) {
+        let node_ids: Vec<usize> = self.nodes.iter().map(|n| n.id).collect();
+        self.nodes
+            .iter_mut()
+            .for_each(|n| n.edges.retain(|e| node_ids.contains(&e.dst)));
     }
 }
