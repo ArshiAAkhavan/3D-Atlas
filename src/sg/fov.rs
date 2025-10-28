@@ -72,7 +72,7 @@ impl Observer {
     }
 
     /// Cone-frustum membership test.
-    pub fn observers(&self, p: Vec3) -> bool {
+    pub fn observers(&self, p: &Vec3) -> bool {
         // vector from observer to point
         let v = p - self.position;
         // reachability test
@@ -83,5 +83,39 @@ impl Observer {
         let dir = v / d;
         let cos_theta = dir.dot(self.forward()); // both unit
         cos_theta >= self.half_angle_cos
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use glam::Vec3;
+    #[test]
+    fn cone_frustum_check() {
+        // Observer at origin, yaw=30°, pitch=5°, roll=0°
+        let pos = Vec3::new(0.0, 0.0, 0.0);
+        let yaw = 30_f32.to_radians();
+        let pitch = 5_f32.to_radians();
+        let roll = 0.0;
+
+        // Cone View Frustum: half-angle=35°, near=0.6, far=6.0
+        let half_angle = 35_f32.to_radians();
+        let near = 0.6;
+        let far = 6.0;
+
+        let cone = Observer::from_ypr(pos, yaw, pitch, roll, half_angle, near, far);
+
+        // Some test points (world space)
+        let pts = [
+            (Vec3::new(2.0, 0.4, 4.5), true),    // likely inside
+            (Vec3::new(0.2, 0.1, 0.4), false), // inside angle but closer than near (should be false)
+            (Vec3::new(5.0, 2.5, 0.5), false), // near edge
+            (Vec3::new(-1.0, 0.0, 2.0), false), // behind-ish/side (likely outside angle)
+            (Vec3::new(20.0, 0.0, 30.0), false), // beyond far (false)
+        ];
+
+        for (p, is_observable) in pts.iter() {
+            assert_eq!(cone.observers(p), *is_observable);
+        }
     }
 }

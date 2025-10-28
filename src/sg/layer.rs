@@ -130,7 +130,7 @@ impl Layer {
             .nodes
             .iter()
             .filter(|n| n.coordinates.is_some())
-            .filter(|n| observer.observers(n.coordinates.unwrap()))
+            .filter(|n| observer.observers(&n.coordinates.unwrap()))
             .cloned()
             .collect::<Vec<Node>>();
         let mut l = Self { nodes };
