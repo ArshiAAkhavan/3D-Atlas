@@ -43,7 +43,7 @@ impl Observer {
     /// half_angle: radians.
     /// near, far: distances.
     /// yaw, pitch, and roll: radians.
-    fn from_ypr(
+    pub fn from_ypr(
         pos: Vec3,
         yaw: f32,
         pitch: f32,
