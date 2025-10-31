@@ -21,13 +21,6 @@ pub struct SceneGraph {
 }
 
 impl SceneGraph {
-    fn new() -> Self {
-        Self {
-            layers: Vec::new(),
-            node_counter: 0,
-        }
-    }
-
     /// Create a new layer and add it to the scene graph.
     pub fn new_layer(&mut self) -> &mut Layer {
         self.layers.push(Layer::new());
@@ -108,14 +101,23 @@ impl SceneGraph {
 
 /// Layer Accessors
 impl SceneGraph {
+    /// Get a mutable reference to the top layer.
     pub fn top_layer_mut(&mut self) -> Result<&mut Layer> {
         self.layers
             .last_mut()
             .ok_or(AtlasError::LayerOutOfBounds(0, 0))
     }
 
+    /// Get an immutable reference to the top layer.
     pub fn top_layer(&self) -> Result<&Layer> {
         self.layers.last().ok_or(AtlasError::LayerOutOfBounds(0, 0))
+    }
+
+    /// Get an immutable reference to a layer by its index.
+    pub fn layer(&self, index: usize) -> Result<&Layer> {
+        self.layers
+            .get(index)
+            .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
     }
 
     /// Get a mutable reference to a layer by its index.
@@ -126,15 +128,8 @@ impl SceneGraph {
             .ok_or(AtlasError::LayerOutOfBounds(index, layers_count))
     }
 
-    /// Get an immutable reference to a layer by its index.
-    pub fn layer(&self, index: usize) -> Result<&Layer> {
-        self.layers
-            .get(index)
-            .ok_or(AtlasError::LayerOutOfBounds(index, self.layers.len()))
-    }
-
     /// Get the layer index of a node by its ID.
-    fn layer_of(&self, nid: usize) -> Result<usize, AtlasError> {
+    pub fn layer_of(&self, nid: usize) -> Result<usize, AtlasError> {
         let nestee_layer_id = self
             .layers
             .iter()
@@ -146,6 +141,7 @@ impl SceneGraph {
 
 /// Node Accessors
 impl SceneGraph {
+    /// Get an immutable reference to a node by its ID.
     pub fn node(&self, nid: usize) -> Result<&Node> {
         self.layers
             .iter()
@@ -153,6 +149,7 @@ impl SceneGraph {
             .ok_or(AtlasError::NodeNotFound)
     }
 
+    /// Get a mutable reference to a node by its ID.
     pub fn node_mut(&mut self, nid: usize) -> Result<&mut Node> {
         self.layers
             .iter_mut()
@@ -309,6 +306,10 @@ impl SceneGraph {
     }
 }
 
+/// An intermediate struct to facilitate the nesting of one node under another in a SceneGraph.
+/// Refer to the `nest` method in `SceneGraph` for usage example.
+///
+/// [`nest`](SceneGraph::nest)
 pub struct NestUnder<'a> {
     sg: &'a mut SceneGraph,
     nestee: usize,
