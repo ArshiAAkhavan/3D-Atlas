@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::{Edge, Node, Observer};
 use crate::error::{AtlasError, Result};
 
@@ -7,14 +9,11 @@ use crate::error::{AtlasError, Result};
 #[derive(Debug, Clone)]
 pub struct Layer {
     /// List of nodes in this layer.
-    pub nodes: Vec<Node>,
+    pub(super) nodes: Vec<Node>,
 }
 
+/// Node Access and Modification
 impl Layer {
-    pub(super) fn new() -> Self {
-        Self { nodes: Vec::new() }
-    }
-
     /// Get a reference to a node by its ID.
     pub fn node(&self, id: usize) -> Result<&Node> {
         self.nodes
@@ -29,20 +28,6 @@ impl Layer {
             .iter_mut()
             .find(|node| node.id == id)
             .ok_or(AtlasError::NodeNotFound)
-    }
-
-    /// Delete a node by its ID, removing all associated edges in the layer.
-    pub(super) fn del_node(&mut self, id: usize) -> Result<Node> {
-        let index = self
-            .nodes
-            .iter()
-            .position(|node| node.id == id)
-            .ok_or(AtlasError::NodeNotFound)?;
-        let node = self.nodes.remove(index);
-        self.nodes
-            .iter_mut()
-            .for_each(|node| node.edges.retain(|edge| edge.dst != id));
-        Ok(node)
     }
 
     /// Add a new node to the layer.
@@ -71,13 +56,6 @@ impl Layer {
             .ok_or(AtlasError::EdgeNotFound)?;
         src_node.edges.swap_remove(index);
         Ok(())
-    }
-
-    /// Retain only the nodes specified in the retain_nodes list.
-    /// All other nodes and their associated edges will be removed from the layer.
-    pub fn retain_nodes(&mut self, retain_nodes: &[usize]) {
-        self.nodes.retain(|node| retain_nodes.contains(&node.id));
-        self.prune();
     }
 }
 
@@ -161,13 +139,41 @@ impl Layer {
     }
 
     /// Prune edges that point to non-existing nodes in the layer.
-    pub fn prune(&mut self) {
+    pub(super) fn prune(&mut self) {
         let node_ids: Vec<usize> = self.nodes.iter().map(|n| n.id).collect();
         self.nodes
             .iter_mut()
             .for_each(|n| n.edges.retain(|e| node_ids.contains(&e.dst)));
     }
 }
+
+impl Layer {
+    pub(super) fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
+
+    /// Delete a node by its ID, removing all associated edges in the layer.
+    pub(super) fn del_node(&mut self, id: usize) -> Result<Node> {
+        let index = self
+            .nodes
+            .iter()
+            .position(|node| node.id == id)
+            .ok_or(AtlasError::NodeNotFound)?;
+        let node = self.nodes.remove(index);
+        self.nodes
+            .iter_mut()
+            .for_each(|node| node.edges.retain(|edge| edge.dst != id));
+        Ok(node)
+    }
+
+    /// Retain only the nodes specified in the retain_nodes list.
+    /// All other nodes and their associated edges will be removed from the layer.
+    pub(super) fn retain_nodes(&mut self, retain_nodes: &[usize]) {
+        self.nodes.retain(|node| retain_nodes.contains(&node.id));
+        self.prune();
+    }
+}
+
 
 #[cfg(test)]
 mod test {
